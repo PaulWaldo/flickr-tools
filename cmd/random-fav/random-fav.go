@@ -34,6 +34,47 @@ func setupFlags() {
 	flag.Parse()
 }
 
+func divMod(numerator, denominator int) (q, r int) {
+	q = numerator / denominator
+	r = numerator % denominator
+	return
+}
+
+func randomFav(client *flickr.PaginatedClient, userId string) (flickr.Fav, error) {
+	const allRightReserved = "0"
+	// Get the favs list metadata
+	client.NumPerPage = 1
+	if _, err := client.Favs(userId); err != nil {
+		return flickr.Fav{}, err
+	}
+	client.NumPerPage = 100
+
+	// Loop through random Favs, looking for ones which are not restricted, i.e.
+	// license value != 0 ("All Rights Reserved")}
+	found := false
+	// var offset int
+	for !found {
+		photoNum := rand.Intn(client.Total)
+		// var page int
+		page, offset := divMod(photoNum, client.RequestNumPerPage)
+		page += 1 // Account for API pages starting at 1
+		// Get specified page
+		client.Page = client.NumPages // page
+		if client.Page > client.NumPages {
+			panic("Whoa!")
+		}
+		favs, err := client.Favs(userId)
+		if err != nil {
+			return flickr.Fav{}, err
+		}
+
+		if favs[offset].License != allRightReserved {
+			return favs[offset], nil
+		}
+	}
+	return flickr.Fav{}, fmt.Errorf("unable to find a fav")
+}
+
 func main() {
 	setupFlags()
 	rand.Seed(time.Now().UnixNano())
@@ -47,7 +88,9 @@ func main() {
 		utils.SLog(fmt.Sprintf("ID is %s", user.Id))
 	}
 
-	fav, err := client.RandomFav(user.Id)
+	paginatedClient := flickr.NewDefaultPaginatedClient(apiKey, envFile)
+	paginatedClient.Cache = true
+	fav, err := randomFav(&paginatedClient, user.Id)
 	if err != nil {
 		log.Fatalf("Unable to get random fav: %s", err)
 	}
