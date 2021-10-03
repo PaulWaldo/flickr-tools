@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/user"
+	"path/filepath"
 	"strings"
 )
 
@@ -30,12 +32,6 @@ func DownloadFile(fullURLFile string, dir string) (string, error) {
 	segments := strings.Split(path, "/")
 	fileName := segments[len(segments)-1]
 
-	// Create blank file
-	file, err := os.Create(fmt.Sprintf("%s/%s", dir, fileName))
-	if err != nil {
-		return noFile, err
-	}
-
 	client := http.Client{}
 	resp, err := client.Get(fullURLFile)
 	if err != nil {
@@ -46,6 +42,12 @@ func DownloadFile(fullURLFile string, dir string) (string, error) {
 		return noFile, fmt.Errorf("unable to download %s : got response %s", fullURLFile, resp.Status)
 	}
 
+	fullPath := filepath.Join(dir, fileName)
+	file, err := os.Create(fullPath)
+	if err != nil {
+		return noFile, err
+	}
+
 	size, err := io.Copy(file, resp.Body)
 	if err != nil {
 		return noFile, err
@@ -53,5 +55,39 @@ func DownloadFile(fullURLFile string, dir string) (string, error) {
 	defer file.Close()
 
 	SLog(fmt.Sprintf("Downloaded file %s with size %d bytes", fileName, size))
-	return fileName, nil
+	return fullPath, nil
 }
+
+// parseDir parses a user-entered directory and properly formats it
+func ParseDir(path string) (string, error) {
+	// Try tilde exapnsion
+	var newPath string
+	if strings.Contains(path, "~") {
+		usr, err := user.Current()
+		if err != nil {
+			return "", err
+		}
+		homeDir := usr.HomeDir
+		if path == "~" {
+			newPath = homeDir
+		} else if strings.HasPrefix(path, "~/") {
+			newPath = filepath.Join(homeDir, path[2:])
+		}
+	} else {
+		newPath = filepath.Clean(path)
+	}
+
+	_, err := os.Stat(newPath)
+	if err != nil {
+		return "", err
+	}
+
+	return newPath, nil
+}
+
+func DivMod(numerator, denominator int) (q, r int) {
+	q = numerator / denominator
+	r = numerator % denominator
+	return
+}
+

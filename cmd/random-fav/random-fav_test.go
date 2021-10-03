@@ -3,6 +3,8 @@ package main
 import (
 	"os/user"
 	"testing"
+
+	"github.com/PaulWaldo/flickr-tools/utils"
 )
 
 func TestDivMod(t *testing.T) {
@@ -17,7 +19,7 @@ func TestDivMod(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		q, r := divMod(c.numer, c.denom)
+		q, r := utils.DivMod(c.numer, c.denom)
 		if q != c.quotient {
 			t.Errorf("For %d/%d, expecting quotient to be %d but got %d", c.numer, c.denom, c.quotient, q)
 		}
@@ -28,22 +30,22 @@ func TestDivMod(t *testing.T) {
 }
 
 func TestParseDir(t *testing.T) {
-	cases := [] struct {
-		testPath string
+	cases := []struct {
+		testPath     string
 		failExpected bool
-		parsedPath string
+		parsedPath   string
 	}{
 		{".", false, "."},
 		{"/", false, "/"},
 		{"non_existant", true, ""},
 	}
-	for _,c := range cases {
-		parsed, err := parseDir(c.testPath)
+	for _, c := range cases {
+		parsed, err := utils.ParseDir(c.testPath)
 		if c.failExpected && err == nil {
 			t.Errorf("expecting failure for path %s, but got none", c.testPath)
 		}
 		if !c.failExpected && err != nil {
-			t.Errorf("expecting pass for path '%s', but got %s", c.testPath,err)
+			t.Errorf("expecting pass for path '%s', but got %s", c.testPath, err)
 		}
 		if parsed != c.parsedPath {
 			t.Errorf("Expecting parsed path to be '%s' but got '%s'", c.parsedPath, parsed)
@@ -58,7 +60,7 @@ func TestParseTildeDir(t *testing.T) {
 	}
 	homeDir := usr.HomeDir
 
-	parsed, err := parseDir("~")
+	parsed, err := utils.ParseDir("~")
 	if err != nil {
 		t.Errorf("Got failure parsing '~': %s", err)
 	}
