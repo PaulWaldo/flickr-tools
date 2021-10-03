@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
+	"os/user"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/PaulWaldo/flickr-tools/utils"
@@ -38,6 +42,33 @@ func divMod(numerator, denominator int) (q, r int) {
 	q = numerator / denominator
 	r = numerator % denominator
 	return
+}
+
+// parseDir parses a user-entered directory and properly formats it
+func parseDir(path string) (string, error) {
+	// Try tilde exapnsion
+	var newPath string
+	if strings.Contains(path, "~") {
+		usr, err := user.Current()
+		if err != nil {
+			return "", err
+		}
+		homeDir := usr.HomeDir
+		if path == "~" {
+			newPath = homeDir
+		} else if strings.HasPrefix(path, "~/") {
+			newPath = filepath.Join(homeDir, path[2:])
+		}
+	} else {
+		newPath = filepath.Clean(path)
+	}
+
+	_, err := os.Stat(newPath)
+	if err != nil {
+		return "", err
+	}
+
+	return newPath, nil
 }
 
 func randomFav(client *flickr.PaginatedClient, userId string) (flickr.Fav, error) {
@@ -111,7 +142,7 @@ func main() {
 	}
 
 	var file string
-	file, err = utils.DownloadFile(url)
+	file, err = utils.DownloadFile(url, utils.DownloadDir)
 	if err != nil {
 		log.Fatalf("Unable to download URL %s : %s", url, err)
 	}

@@ -20,7 +20,7 @@ func SLog(msg string) {
 	}
 }
 
-func DownloadFile(fullURLFile string) (string, error) {
+func DownloadFile(fullURLFile string, dir string) (string, error) {
 	const noFile = ""
 	fileURL, err := url.Parse(fullURLFile)
 	if err != nil {
@@ -31,7 +31,7 @@ func DownloadFile(fullURLFile string) (string, error) {
 	fileName := segments[len(segments)-1]
 
 	// Create blank file
-	file, err := os.Create(fileName)
+	file, err := os.Create(fmt.Sprintf("%s/%s", dir, fileName))
 	if err != nil {
 		return noFile, err
 	}
