@@ -54,9 +54,6 @@ func randomFav(client *flickr.PaginatedClient, userId string) (flickr.Fav, error
 		page += 1 // Account for API pages starting at 1
 		// Get specified page
 		client.Page = client.NumPages // page
-		if client.Page > client.NumPages {
-			panic("Whoa!")
-		}
 		favs, err := client.Favs(userId)
 		if err != nil {
 			return flickr.Fav{}, err
