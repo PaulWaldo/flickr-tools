@@ -1,10 +1,8 @@
-package main
+package utils
 
 import (
 	"os/user"
 	"testing"
-
-	"github.com/PaulWaldo/flickr-tools/utils"
 )
 
 func TestDivMod(t *testing.T) {
@@ -19,7 +17,7 @@ func TestDivMod(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		q, r := utils.DivMod(c.numer, c.denom)
+		q, r := DivMod(c.numer, c.denom)
 		if q != c.quotient {
 			t.Errorf("For %d/%d, expecting quotient to be %d but got %d", c.numer, c.denom, c.quotient, q)
 		}
@@ -40,7 +38,7 @@ func TestParseDir(t *testing.T) {
 		{"non_existant", true, ""},
 	}
 	for _, c := range cases {
-		parsed, err := utils.ParseDir(c.testPath)
+		parsed, err := ParseDir(c.testPath)
 		if c.failExpected && err == nil {
 			t.Errorf("expecting failure for path %s, but got none", c.testPath)
 		}
@@ -60,7 +58,7 @@ func TestParseTildeDir(t *testing.T) {
 	}
 	homeDir := usr.HomeDir
 
-	parsed, err := utils.ParseDir("~")
+	parsed, err := ParseDir("~")
 	if err != nil {
 		t.Errorf("Got failure parsing '~': %s", err)
 	}
