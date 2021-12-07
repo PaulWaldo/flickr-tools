@@ -10,10 +10,12 @@ import (
 )
 
 var (
-	userName string
-	apiKey   string
-	envFile  string
-	size     int
+	userName         string
+	apiKey           string
+	envFile          string
+	size             int
+	minSize          int
+	failNotAvailable bool
 )
 
 func setupFlags() {
@@ -28,6 +30,8 @@ func setupFlags() {
 	flag.BoolVar(&utils.Verbose, "v", false, "Verbose")
 	flag.IntVar(&size, "size", 2048, "Desired size of the long edge of the image.  "+
 		"Resultant image may be larger if size does not exist.")
+	flag.IntVar(&minSize, "minsize", 2000, "Minimum acceptable long edge size if desired size is not available")
+	flag.BoolVar(&failNotAvailable, "fail", false, "Fails if min desired size not available.  Default is false")
 	flag.Parse()
 }
 
@@ -55,10 +59,22 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error getting Favs: %s", err)
 	}
-	utils.SLog(fmt.Sprintf("Page %d/%d: %d items", favs.Page, favs.Pages, len(favs.Photos)))
 
-	// var favs []flickr.Fav
 	for err == nil {
+		utils.SLog(fmt.Sprintf("Page %d/%d: %d items", favs.Page, favs.Pages, len(favs.Photos)))
+		for _, fav := range favs.Photos {
+			utils.SLog(fmt.Sprintf("Getting title '%s'", fav.Title))
+			filename, err := utils.DownloadPhoto(*client, fav, size, minSize, true)
+			if err == flickr.ErrMinSizeNotAvailable {
+				utils.SLog(err.Error())
+				continue
+			}
+			if err != nil {
+				log.Fatalf("error downloading photo: %s", err)
+			}
+			utils.SLog(fmt.Sprintf("Downloaded file %s", filename))
+		}
+
 		favs, err = paginatedClient.NextPage()
 		if err == flickr.ErrPaginatorExhausted {
 			break
@@ -66,14 +82,5 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error getting Favs: %s", err)
 		}
-		utils.SLog(fmt.Sprintf("Page %d/%d: %d items", favs.Page, favs.Pages, len(favs.Photos)))
-		// fmt.Printf("%v\n", favs)
-		for _, fav:=range favs.Photos {
-			utils.SLog(fmt.Sprintf("Would have downloaded %s", fav.Title))
-			// utils.DownloadFile(fav.)
-		}
-	}
-	if err != flickr.ErrPaginatorExhausted {
-		log.Fatalf("Error getting favs: %s", err)
 	}
 }

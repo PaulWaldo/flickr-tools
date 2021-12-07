@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"strconv"
 	"time"
 
 	"github.com/PaulWaldo/flickr-tools/utils"
@@ -17,6 +16,7 @@ var (
 	apiKey   string
 	envFile  string
 	size     int
+	minSize  int
 )
 
 func setupFlags() {
@@ -31,6 +31,7 @@ func setupFlags() {
 	flag.BoolVar(&utils.Verbose, "v", false, "Verbose")
 	flag.IntVar(&size, "size", 2048, "Desired size of the long edge of the image.  "+
 		"Resultant image may be larger if size does not exist.")
+	flag.IntVar(&minSize, "minsize", 2000, "Minimum acceptable long edge size if desired size is not available")
 	flag.Parse()
 }
 
@@ -73,7 +74,7 @@ func main() {
 	setupFlags()
 	rand.Seed(time.Now().UnixNano())
 
-	client,err := flickr.NewClient()
+	client, err := flickr.NewClient()
 	if err != nil {
 		log.Fatalf("Error creating client: %s", err)
 	}
@@ -85,41 +86,20 @@ func main() {
 		utils.SLog(fmt.Sprintf("ID is %s", user.Id))
 	}
 
-	paginatedClient,err := flickr.NewPhotosClient()
+	paginatedClient, err := flickr.NewPhotosClient()
 	if err != nil {
 		log.Fatalf("Error creating photos client: %s", err)
 	}
 
-	// paginatedClient.Cache = true
 	fav, err := randomFav(paginatedClient, user.Id)
 	if err != nil {
 		log.Fatalf("Unable to get random fav: %s", err)
 	}
 	utils.SLog(fmt.Sprintf("Got \"%s\"", fav.Title))
 
-	favId, err := strconv.Atoi(fav.ID)
+	file, err := utils.DownloadPhoto(*client, fav, size, minSize, true)
 	if err != nil {
-		log.Fatalf("Error converting Favorite Id '%s' to integer: %s", fav.ID, err)
-	}
-
-	sizes, err := client.GetPhotoSizes(favId)
-	if err != nil {
-		log.Fatalf("Error getting photo sizes: %s", err)
-	}
-
-	url, err := sizes.ClosestWidthUrl(size)
-	if err != nil {
-		log.Fatalf("Error getting width based URL: %s", err)
-	}
-
-	scrubbedDir, err := utils.ParseDir(utils.DownloadDir)
-	if err != nil {
-		log.Fatal(err)
-	}
-	
-	file, err := utils.DownloadFile(url, scrubbedDir)
-	if err != nil {
-		log.Fatalf("Unable to download URL %s : %s", url, err)
+		fmt.Printf("Unable to download photo %s: %s", fav.Title, err)
 	}
 	fmt.Println(file)
 }
