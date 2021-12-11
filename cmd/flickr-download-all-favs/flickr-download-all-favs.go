@@ -37,6 +37,7 @@ func setupFlags() {
 
 func main() {
 	setupFlags()
+	ch := make(chan flickr.PhotoListItem, 100)
 
 	client, err := flickr.NewClient()
 	if err != nil {
@@ -60,27 +61,48 @@ func main() {
 		log.Fatalf("Error getting Favs: %s", err)
 	}
 
-	for err == nil {
-		utils.SLog(fmt.Sprintf("Page %d/%d: %d items", favs.Page, favs.Pages, len(favs.Photos)))
-		for _, fav := range favs.Photos {
-			utils.SLog(fmt.Sprintf("Getting title '%s'", fav.Title))
-			filename, err := utils.DownloadPhoto(*client, fav, size, minSize, true)
-			if err == flickr.ErrMinSizeNotAvailable {
-				utils.SLog(err.Error())
-				continue
+	go func() {
+		defer close(ch)
+		for err == nil {
+			utils.SLog(fmt.Sprintf("Page %d/%d: %d items", favs.Page, favs.Pages, len(favs.Photos)))
+			for _, fav := range favs.Photos {
+				ch <- fav
+			}
+			favs, err = paginatedClient.NextPage()
+			if err == flickr.ErrPaginatorExhausted {
+				break
 			}
 			if err != nil {
-				log.Fatalf("error downloading photo: %s", err)
+				log.Fatalf("Error getting Favs: %s", err)
+			}
+		}
+	}()
+
+	var (
+		downloaded          = 0
+		minSizeNotAvailable = 0
+		errors              = 0
+	)
+	for f := range ch {
+		go func(p flickr.PhotoListItem) {
+			utils.SLog(fmt.Sprintf("Getting title '%s'", p.Title))
+			filename, err := utils.DownloadPhoto(*client, p, size, minSize, true)
+			if err == flickr.ErrMinSizeNotAvailable {
+				utils.SLog(err.Error())
+				minSizeNotAvailable++
+				return
+			}
+			if err != nil {
+				utils.SLog(fmt.Sprintf("error downloading photo: %s", err))
+				errors++
+				return
 			}
 			utils.SLog(fmt.Sprintf("Downloaded file %s", filename))
-		}
-
-		favs, err = paginatedClient.NextPage()
-		if err == flickr.ErrPaginatorExhausted {
-			break
-		}
-		if err != nil {
-			log.Fatalf("Error getting Favs: %s", err)
-		}
+			downloaded++
+		}(f)
 	}
+	fmt.Printf("Downloaded %d\n", downloaded)
+	fmt.Printf("Minimum size not available %d\n", minSizeNotAvailable)
+	fmt.Printf("Error downloading %d\n", errors)
+	fmt.Println("Downloader done!")
 }
