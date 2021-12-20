@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/PaulWaldo/flickr-tools/utils"
 	flickr "github.com/azer/go-flickr"
@@ -19,6 +20,11 @@ var (
 )
 
 func setupFlags() {
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "%s accepts a Flickr user name and downloads all images from the favorites chosen by that user.\nUsage:\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+
 	flag.StringVar(&utils.DownloadDir, "dir", ".", "Directory of the downloaded image")
 	flag.StringVar(&userName, "user", "", "Name of user for which to load favorites")
 	flag.StringVar(&apiKey, "key", "", "Flickr API Key (see https://www.flickr.com/services/apps/create/).  "+
