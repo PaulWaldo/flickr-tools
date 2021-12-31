@@ -38,7 +38,7 @@ func TestParseDir(t *testing.T) {
 		{"non_existant", true, ""},
 	}
 	for _, c := range cases {
-		parsed, err := ParseDir(c.testPath)
+		parsed, err := parseDir(c.testPath)
 		if c.failExpected && err == nil {
 			t.Errorf("expecting failure for path %s, but got none", c.testPath)
 		}
@@ -58,7 +58,7 @@ func TestParseTildeDir(t *testing.T) {
 	}
 	homeDir := usr.HomeDir
 
-	parsed, err := ParseDir("~")
+	parsed, err := parseDir("~")
 	if err != nil {
 		t.Errorf("Got failure parsing '~': %s", err)
 	}

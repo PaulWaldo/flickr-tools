@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"strconv"
+	"os"
 	"time"
 
 	"github.com/PaulWaldo/flickr-tools/utils"
@@ -17,9 +17,15 @@ var (
 	apiKey   string
 	envFile  string
 	size     int
+	minSize  int
 )
 
 func setupFlags() {
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "%s accepts a Flickr user name and downloads a random image from the favorites chosen by that user.\nUsage:\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+
 	flag.StringVar(&utils.DownloadDir, "dir", ".", "Directory of the downloaded image")
 	flag.StringVar(&userName, "user", "", "Name of user for which to load favorites")
 	flag.StringVar(&apiKey, "key", "", "Flickr API Key (see https://www.flickr.com/services/apps/create/).  "+
@@ -31,46 +37,53 @@ func setupFlags() {
 	flag.BoolVar(&utils.Verbose, "v", false, "Verbose")
 	flag.IntVar(&size, "size", 2048, "Desired size of the long edge of the image.  "+
 		"Resultant image may be larger if size does not exist.")
+	flag.IntVar(&minSize, "minsize", 2000, "Minimum acceptable long edge size if desired size is not available")
 	flag.Parse()
 }
 
-func randomFav(client *flickr.PaginatedClient, userId string) (flickr.Fav, error) {
+func randomFav(client *flickr.PhotosClient, userId string) (flickr.PhotoListItem, error) {
 	const allRightReserved = "0"
 	// Get the favs list metadata
-	client.NumPerPage = 1
-	if _, err := client.Favs(userId); err != nil {
-		return flickr.Fav{}, err
+	client.PerPage = 1
+	favs, err := client.Favs(userId)
+	if err != nil {
+		return flickr.PhotoListItem{}, err
 	}
-	client.NumPerPage = 100
+	client.PerPage = 1
 
 	// Loop through random Favs, looking for ones which are not restricted, i.e.
 	// license value != 0 ("All Rights Reserved")}
 	found := false
 	// var offset int
 	for !found {
-		photoNum := rand.Intn(client.Total)
+		photoNum := rand.Intn(favs.Total)
 		// var page int
-		page, offset := utils.DivMod(photoNum, client.RequestNumPerPage)
+		page, offset := utils.DivMod(photoNum, client.PerPage)
 		page += 1 // Account for API pages starting at 1
 		// Get specified page
-		client.Page = client.NumPages // page
+		client.Page = page
 		favs, err := client.Favs(userId)
 		if err != nil {
-			return flickr.Fav{}, err
+			return flickr.PhotoListItem{}, err
 		}
 
-		if favs[offset].License != allRightReserved {
-			return favs[offset], nil
+		if favs.Photos[offset].License != allRightReserved {
+			return favs.Photos[offset], nil
+		} else {
+			utils.SLog(fmt.Sprintf("Photo %d is restricted, trying another", photoNum))
 		}
 	}
-	return flickr.Fav{}, fmt.Errorf("unable to find a fav")
+	return flickr.PhotoListItem{}, fmt.Errorf("unable to find a fav")
 }
 
 func main() {
 	setupFlags()
 	rand.Seed(time.Now().UnixNano())
 
-	client := flickr.NewClient(apiKey, envFile)
+	client, err := flickr.NewClient()
+	if err != nil {
+		log.Fatalf("Error creating client: %s", err)
+	}
 
 	user, err := client.FindUser(userName)
 	if err != nil {
@@ -79,37 +92,20 @@ func main() {
 		utils.SLog(fmt.Sprintf("ID is %s", user.Id))
 	}
 
-	paginatedClient := flickr.NewDefaultPaginatedClient(apiKey, envFile)
-	paginatedClient.Cache = true
-	fav, err := randomFav(&paginatedClient, user.Id)
+	paginatedClient, err := flickr.NewPhotosClient()
+	if err != nil {
+		log.Fatalf("Error creating photos client: %s", err)
+	}
+
+	fav, err := randomFav(paginatedClient, user.Id)
 	if err != nil {
 		log.Fatalf("Unable to get random fav: %s", err)
 	}
 	utils.SLog(fmt.Sprintf("Got \"%s\"", fav.Title))
 
-	favId, err := strconv.Atoi(fav.Id)
+	file, err := utils.DownloadPhoto(*client, fav, size, minSize, true)
 	if err != nil {
-		log.Fatalf("Error converting Favorite Id '%s' to integer: %s", fav.Id, err)
-	}
-	sizes, err := client.GetPhotoSizes(favId)
-	if err != nil {
-		log.Fatalf("Error getting photo sizes: %s", err)
-	}
-
-	url, err := sizes.ClosestWidthUrl(size)
-	if err != nil {
-		log.Fatalf("Error getting width based URL: %s", err)
-	}
-
-	// var file string
-	scrubbedDir, err := utils.ParseDir(utils.DownloadDir)
-	if err != nil {
-		log.Fatal(err)
-	}
-	
-	file, err := utils.DownloadFile(url, scrubbedDir)
-	if err != nil {
-		log.Fatalf("Unable to download URL %s : %s", url, err)
+		fmt.Printf("Unable to download photo %s: %s", fav.Title, err)
 	}
 	fmt.Println(file)
 }
