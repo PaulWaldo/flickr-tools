@@ -45,9 +45,16 @@ func main() {
 	setupFlags()
 	ch := make(chan flickr.PhotoListItem, 100)
 
-	client, err := flickr.NewClient()
-	if err != nil {
-		log.Fatalf("Unable to create client: %s", err)
+	var client *flickr.Client
+
+	if len(apiKey) > 0 {
+		client = flickr.NewClientApiKey(apiKey)
+	} else {
+		var err error
+		client, err = flickr.NewClient()
+		if err != nil {
+			log.Fatalf("Unable to create client: %s", err)
+		}
 	}
 
 	user, err := client.FindUser(userName)
@@ -57,9 +64,14 @@ func main() {
 		utils.SLog(fmt.Sprintf("ID is %s", user.Id))
 	}
 
-	paginatedClient, err := flickr.NewPhotosClient()
-	if err != nil {
-		log.Fatalf("Unable to create photos client: %s", err)
+	var paginatedClient *flickr.PhotosClient
+	if len(apiKey) > 0 {
+		paginatedClient = flickr.NewPhotosClientApiKey(apiKey)
+	} else {
+		paginatedClient, err = flickr.NewPhotosClient()
+		if err != nil {
+			log.Fatalf("Unable to create photos client: %s", err)
+		}
 	}
 
 	favs, err := paginatedClient.Favs(user.Id)
