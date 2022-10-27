@@ -101,7 +101,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to get random fav: %s", err)
 	}
-	utils.SLog(fmt.Sprintf("Got \"%s\"", fav.Title))
+	utils.SLog(fmt.Sprintf("Got %q", fav.Title))
 
 	file, err := utils.DownloadPhoto(*client, fav, size, minSize, true)
 	if err != nil {
