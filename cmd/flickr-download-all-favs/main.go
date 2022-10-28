@@ -60,9 +60,8 @@ func main() {
 	user, err := client.FindUser(userName)
 	if err != nil {
 		log.Fatalf("Error finding user %s: %s", userName, err)
-	} else {
-		utils.SLog(fmt.Sprintf("ID is %s", user.Id))
 	}
+	utils.SLog(fmt.Sprintf("ID is %s", user.Id))
 
 	var paginatedClient *flickr.PhotosClient
 	if len(apiKey) > 0 {
